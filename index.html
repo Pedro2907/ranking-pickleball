@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ranking Pickleball da Turma</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: scoreboard-first. Pódio dos 3 primeiros no topo, lista do restante, gráfico de evolução abaixo. Cores de quadra (azul) + bola (amarelo-verde) só como realce. */
+:root{
+  --bg:#f3f5f7; --surface:#ffffff; --fg:#141c26; --muted:#5d6b7c; --line:#d9dfe6;
+  --court:#1d5fa6; --court-soft:#e3edf8; --ball:#c9d400; --up:#1f8a4c; --down:#c3392b; --up-soft:#e2f3e8; --down-soft:#f8e4e1;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --pad:max(16px,env(safe-area-inset-left,0px)); --padr:max(16px,env(safe-area-inset-right,0px));
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f151d; --surface:#172028; --fg:#eef2f6; --muted:#9aa8b8; --line:#2a3642;
+  --court:#6aa6ea; --court-soft:#1b2d42; --ball:#d6e03a; --up:#4fcf82; --down:#f0776a; --up-soft:#173d28; --down-soft:#48231f; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0f151d; --surface:#172028; --fg:#eef2f6; --muted:#9aa8b8; --line:#2a3642;
+  --court:#6aa6ea; --court-soft:#1b2d42; --ball:#d6e03a; --up:#4fcf82; --down:#f0776a; --up-soft:#173d28; --down-soft:#48231f; color-scheme:dark }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;padding-left:var(--pad);padding-right:var(--padr);padding-block:20px 48px}
+.wrap{max-width:860px;margin:0 auto;display:grid;gap:22px}
+h1,h2,h3{font-family:var(--display);margin:0;text-wrap:balance;line-height:1.05}
+h1{font-size:clamp(34px,7vw,52px);font-weight:800;letter-spacing:-.01em;text-transform:uppercase}
+h2{font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+header{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:end;justify-content:space-between}
+.sync{font-size:13px;color:var(--muted)}
+.sync b{color:var(--fg);font-weight:600}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:3px;background:var(--surface)}
+.tabs button{border:0;background:transparent;color:var(--muted);font:600 14px var(--body);padding:7px 16px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--court);color:#fff}
+.tabs button:focus-visible,.btn:focus-visible,input:focus-visible{outline:2px solid var(--ball);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* Pódio */
+.podium{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-items:end}
+.pod{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 12px;display:grid;gap:4px;min-width:0;position:relative}
+.pod.p1{order:2;padding-top:22px;border-color:var(--court)}
+.pod.p2{order:1}.pod.p3{order:3}
+.pod .pos{font-family:var(--display);font-weight:800;font-size:30px;line-height:1;color:var(--court)}
+.pod.p1 .pos{font-size:40px}
+.pod .name{font-weight:600;font-size:15px;overflow-wrap:anywhere}
+.pod .rating{font-family:var(--display);font-weight:800;font-size:34px;line-height:1}
+.pod.p1 .rating{font-size:44px}
+.pod .ball{position:absolute;top:10px;right:10px;width:12px;height:12px;border-radius:50%;background:var(--ball)}
+@media (max-width:420px){.pod .rating{font-size:28px}.pod.p1 .rating{font-size:36px}}
+
+/* Lista */
+.list{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:42px 1fr auto;gap:10px 12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.row .pos{font-family:var(--display);font-weight:700;font-size:22px;color:var(--muted);text-align:center}
+.row .who{min-width:0;display:grid;gap:2px}
+.row .name{font-weight:600;overflow-wrap:anywhere}
+.row .meta{font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row .right{display:grid;justify-items:end;gap:4px}
+.row .rating{font-family:var(--display);font-weight:800;font-size:26px;line-height:1}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;line-height:1.4;white-space:nowrap}
+.chip.up{background:var(--up-soft);color:var(--up)}
+.chip.down{background:var(--down-soft);color:var(--down)}
+.chip.flat{background:var(--court-soft);color:var(--muted)}
+.chip.new{background:var(--court-soft);color:var(--court)}
+.spark{width:84px;height:26px;display:block}
+
+/* Painel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.chart{width:100%;height:auto;display:block}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+.note{font-size:13px;color:var(--muted)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:2px;min-width:0}
+.kpi b{font-family:var(--display);font-size:26px;font-weight:800;line-height:1.05}
+.kpi small{color:var(--muted);font-size:12px}
+
+/* Configuração */
+.setup{background:var(--court-soft);border:1px solid var(--court);border-radius:14px;padding:16px;display:grid;gap:10px}
+.setup ol{margin:0;padding-left:20px;display:grid;gap:4px}
+.field{display:flex;gap:8px;flex-wrap:wrap}
+.field input{flex:1 1 220px;min-width:0;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:14px var(--body);background:var(--surface);color:var(--fg)}
+.btn{border:0;border-radius:10px;padding:9px 16px;font:600 14px var(--body);background:var(--court);color:#fff;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--court);border:1px solid var(--court)}
+.status{font-size:13px;color:var(--muted)}
+.status.err{color:var(--down)}
+.demo-tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;background:var(--ball);color:#141c26;padding:2px 8px;border-radius:999px}
+footer{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:no-preference){.row,.pod{transition:transform .15s}.row:hover{transform:translateX(2px)}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">Pickleball · Ranking da turma</div>
+      <h1>Quem manda na quadra</h1>
+      <div class="sync" id="syncInfo">Carregando…</div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Modalidade">
+      <button role="tab" id="tabDuplas" aria-selected="true" data-mode="duplas">Duplas</button>
+      <button role="tab" id="tabSimples" aria-selected="false" data-mode="simples">Simples</button>
+    </div>
+  </header>
+
+  <section class="setup" id="setup" hidden>
+    <h2>Dados ao vivo indisponíveis</h2>
+    <p class="note" style="margin:0" id="setupMsg">Mostrando a última foto salva no dashboard.</p>
+    <div class="field">
+      <button class="btn" id="retry" hidden>Tentar de novo</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <section class="kpis" id="kpis"></section>
+
+  <section>
+    <div class="eyebrow" style="margin-bottom:8px">Pódio <span class="demo-tag" id="demoTag" hidden>foto salva</span></div>
+    <div class="podium" id="podium"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow" style="margin-bottom:8px">Classificação completa</div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Evolução do rating</h2>
+    <svg class="chart" id="chart" viewBox="0 0 720 300" role="img" aria-label="Evolução do rating por jogador"></svg>
+    <div class="legend" id="legend"></div>
+    <p class="note" id="chartNote" style="margin:0"></p>
+  </section>
+
+  <footer id="foot">Escala DUPR: 2.000 (iniciante) a 8.000 (profissional). A seta compara com a sincronização anterior.</footer>
+</div>
+
+<script>
+(function(){
+  // Fonte ao vivo: web app do Apps Script (lê a planilha sincronizada com o DUPR todo dia).
+  var API_URL = 'https://script.google.com/macros/s/AKfycbwij-VF8eG0LbsXp-DY4INN61I9hm8r8FpD-75cPZbz0wUVvDt2Ewfd7DHsRlEc-WeRBg/exec';
+  var mode = 'duplas';
+  var data = null, isDemo = false;
+  var $ = function(id){ return document.getElementById(id); };
+  var fmt = function(v){ return (v===null||v===undefined||isNaN(v)) ? 'NR' : Number(v).toFixed(3); };
+  var fmtDate = function(s){ if(!s) return '—'; var p = s.split('-'); return p.length===3 ? p[2]+'/'+p[1]+'/'+p[0] : s; };
+  var esc = function(s){ return String(s||'').replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); };
+
+  // Snapshot inicial da turma (01/11/2026), lido dos perfis no app. Substituído pelos dados do web app quando conectado.
+  function demoData(){
+    var d='2026-11-01';
+    var rows=[['ONLE0W','Pedro Abrahão',3.664,3.540,40],['4EL6DM','Vinicius Barros',3.286,3.298,70],['NNYWJ7','Fabrizio Maciel',3.242,3.325,50],['4PGXXG','Rodrigo Brito',3.517,3.426,100],['GX75GD','Marcelo Souto',3.620,3.445,70],['KYOKJK','Leonardo de Sena',3.384,3.303,100],['55MZE0','Fabrinni Oliveira',2.666,null,20],['2Y52LR','Rafael Pessoa',3.664,null,100],['QYPO6R','Pedro Sodré',3.282,3.377,1],['N5O7W7','Lucas Farina',3.404,3.571,1],['7NNEN5','Rogerio Marchioretto',3.664,3.795,100],['EL6ODE','Rodrigo Ferreira',3.660,3.618,100],['Q9JWRD','Evelline de Souza Bezerra',3.341,3.172,70],['7MDG20','Thauã Milério',null,null,null],['YMVL04','Alexandre Donsouzis',3.621,3.673,100],['J5Y65D','Carlos Vasconcelos Kizem Rodrigues',4.028,4.254,70],['VXX5XJ','Murillo Moraes',2.988,3.185,100],['9DK9LE','Ilner Souza',3.169,3.035,20],['LVZPPJ','Wilson Freire',3.613,null,20],['NN2DDW','Dalton Souza Pinto',3.355,3.078,1]];
+    return { ultimaSync:d, syncAnterior:null, jogadores: rows.map(function(r){
+      return {duprId:r[0],nome:r[1],apelido:'',duplas:r[2],simples:r[3],confiabilidade:r[4],duplasAnterior:null,simplesAnterior:null,atualizadoEm:d,historico:[{data:d,duplas:r[2],simples:r[3],confiabilidade:r[4]}]};
+    })};
+  }
+
+  function rankOn(players, key){
+    return players.slice().filter(function(p){return p[key]!==null&&p[key]!==undefined;}).sort(function(a,b){return b[key]-a[key];});
+  }
+  function rankAt(players, key, date){
+    var arr = players.map(function(p){ var h=p.historico.filter(function(x){return x.data===date&&x[key]!==null;}); return h.length?{id:p.duprId,v:h[0][key]}:null; }).filter(Boolean).sort(function(a,b){return b.v-a.v;});
+    var m={}; arr.forEach(function(x,i){m[x.id]=i+1;}); return m;
+  }
+
+  function sparkline(hist, key, color){
+    var pts = hist.filter(function(h){return h[key]!==null;}).map(function(h){return h[key];});
+    if(pts.length<2) return '';
+    var w=84,h=26,mn=Math.min.apply(null,pts),mx=Math.max.apply(null,pts); if(mx===mn){mx+=0.01;mn-=0.01;}
+    var d = pts.map(function(v,i){ var x=(i/(pts.length-1))*(w-4)+2, y=h-2-((v-mn)/(mx-mn))*(h-4); return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1); }).join(' ');
+    var lx=w-2, ly=h-2-((pts[pts.length-1]-mn)/(mx-mn))*(h-4);
+    return '<svg class="spark" viewBox="0 0 '+w+' '+h+'" aria-hidden="true"><path d="'+d+'" fill="none" stroke="'+color+'" stroke-width="2" stroke-linecap="round"/><circle cx="'+lx+'" cy="'+ly.toFixed(1)+'" r="2.5" fill="'+color+'"/></svg>';
+  }
+
+  function render(){
+    var key = mode, prevKey = mode+'Anterior';
+    var players = data.jogadores;
+    var ranked = rankOn(players, key);
+    var unranked = players.filter(function(p){return p[key]===null||p[key]===undefined;});
+    var prevRanks = data.syncAnterior ? rankAt(players, key, data.syncAnterior) : {};
+    var css = getComputedStyle(document.documentElement);
+    var cUp=css.getPropertyValue('--up').trim(), cDown=css.getPropertyValue('--down').trim(), cMuted=css.getPropertyValue('--muted').trim();
+
+    $('syncInfo').innerHTML = 'Última sincronização: <b>'+fmtDate(data.ultimaSync)+'</b>'+(data.syncAnterior?' · comparando com '+fmtDate(data.syncAnterior):'')+' · '+players.length+' jogadores';
+    $('demoTag').hidden = !isDemo;
+
+    function moveChip(p, i){
+      var pr = prevRanks[p.duprId];
+      if(!pr) return '<span class="chip new">novo</span>';
+      var d = pr-(i+1);
+      if(d>0) return '<span class="chip up">▲ '+d+' posição'+(d>1?'s':'')+'</span>';
+      if(d<0) return '<span class="chip down">▼ '+(-d)+' posição'+(d<-1?'s':'')+'</span>';
+      return '<span class="chip flat">= mesma posição</span>';
+    }
+    function deltaChip(p){
+      var prev=p[prevKey]; if(prev===null||prev===undefined) return '';
+      var d=+(p[key]-prev).toFixed(3);
+      if(d>0) return '<span class="chip up">+'+d.toFixed(3)+'</span>';
+      if(d<0) return '<span class="chip down">'+d.toFixed(3)+'</span>';
+      return '<span class="chip flat">0.000</span>';
+    }
+    var label = function(p){ return esc(p.apelido||p.nome); };
+
+    // KPIs
+    var deltas = ranked.filter(function(p){return p[prevKey]!==null&&p[prevKey]!==undefined;}).map(function(p){return {p:p,d:p[key]-p[prevKey]};});
+    var best = deltas.length ? deltas.reduce(function(a,b){return b.d>a.d?b:a;}) : null;
+    var avg = ranked.length ? ranked.reduce(function(s,p){return s+p[key];},0)/ranked.length : null;
+    $('kpis').innerHTML =
+      '<div class="kpi"><small>Líder</small><b>'+(ranked[0]?label(ranked[0]):'—')+'</b><small class="num">'+(ranked[0]?fmt(ranked[0][key]):'')+'</small></div>'+
+      '<div class="kpi"><small>Maior subida</small><b>'+(best&&best.d>0?label(best.p):'—')+'</b><small class="num">'+(best&&best.d>0?'+'+best.d.toFixed(3)+' desde '+fmtDate(data.syncAnterior):'sem comparação ainda')+'</small></div>'+
+      '<div class="kpi"><small>Média da turma</small><b class="num">'+(avg!==null?avg.toFixed(3):'—')+'</b><small>'+(avg!==null?(avg<3?'nível iniciante':avg<4?'nível intermediário':avg<5?'nível avançado':'nível profissional'):'')+'</small></div>';
+
+    // Pódio
+    var podium = ranked.slice(0,3).map(function(p,i){
+      return '<div class="pod p'+(i+1)+'">'+(i===0?'<span class="ball" aria-hidden="true"></span>':'')+'<div class="pos">'+(i+1)+'º</div><div class="name">'+label(p)+'</div><div class="rating num">'+fmt(p[key])+'</div><div>'+deltaChip(p)+'</div><div>'+moveChip(p,i)+'</div></div>';
+    }).join('');
+    $('podium').innerHTML = podium || '<div class="note">Nenhum jogador com rating ainda.</div>';
+
+    // Lista completa
+    var rows = ranked.map(function(p,i){
+      var d = p[prevKey]!==null&&p[prevKey]!==undefined ? p[key]-p[prevKey] : 0;
+      var col = d>0?cUp:d<0?cDown:cMuted;
+      return '<div class="row"><div class="pos num">'+(i+1)+'</div><div class="who"><div class="name">'+esc(p.nome)+(p.apelido?' <span style="color:var(--muted);font-weight:400">· '+esc(p.apelido)+'</span>':'')+'</div><div class="meta">'+moveChip(p,i)+(p.confiabilidade?'<span>confiabilidade '+Math.round(p.confiabilidade)+'%</span>':'')+'<span>DUPR '+esc(p.duprId)+'</span></div></div><div class="right"><div class="rating num">'+fmt(p[key])+'</div>'+deltaChip(p)+sparkline(p.historico,key,col)+'</div></div>';
+    }).concat(unranked.map(function(p){
+      return '<div class="row"><div class="pos">—</div><div class="who"><div class="name">'+esc(p.nome)+'</div><div class="meta"><span>sem rating de '+mode+' ainda</span><span>DUPR '+esc(p.duprId)+'</span></div></div><div class="right"><div class="rating">NR</div></div></div>';
+    }));
+    $('list').innerHTML = rows.join('');
+
+    drawChart(ranked, key);
+  }
+
+  function drawChart(ranked, key){
+    var svg=$('chart'), W=720,H=300, L=46,R=14,T=14,B=34;
+    var dates={}; ranked.forEach(function(p){p.historico.forEach(function(h){ if(h[key]!==null) dates[h.data]=1; });});
+    var xs=Object.keys(dates).sort();
+    var palette=['#1d5fa6','#c9a400','#1f8a4c','#c3392b','#7b4ea3','#d8731c','#13848a','#8a5a2b'];
+    if(xs.length<2){ svg.innerHTML='<text x="360" y="150" text-anchor="middle" fill="currentColor" font-family="Barlow,sans-serif" font-size="14">O gráfico aparece a partir da segunda sincronização.</text>'; $('legend').innerHTML=''; $('chartNote').textContent=''; return; }
+    var all=[]; ranked.forEach(function(p){p.historico.forEach(function(h){ if(h[key]!==null) all.push(h[key]); });});
+    var mn=Math.floor(Math.min.apply(null,all)*4)/4, mx=Math.ceil(Math.max.apply(null,all)*4)/4; if(mx-mn<0.5){mx=mn+0.5;}
+    var x=function(d){ return L+(xs.indexOf(d)/(xs.length-1))*(W-L-R); };
+    var y=function(v){ return T+(1-(v-mn)/(mx-mn))*(H-T-B); };
+    var out='';
+    var ticks=[]; for(var v=mn; v<=mx+1e-9; v+=0.25) ticks.push(+v.toFixed(2));
+    if(ticks.length>9){ ticks=ticks.filter(function(_,i){return i%2===0;}); }
+    ticks.forEach(function(t){ out+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(t)+'" y2="'+y(t)+'" stroke="currentColor" stroke-opacity=".12"/><text x="'+(L-6)+'" y="'+(y(t)+4)+'" text-anchor="end" fill="currentColor" fill-opacity=".7" font-size="11" font-family="Barlow,sans-serif">'+t.toFixed(2)+'</text>'; });
+    var step=Math.max(1,Math.ceil(xs.length/6));
+    xs.forEach(function(d,i){ if(i%step===0||i===xs.length-1) out+='<text x="'+x(d)+'" y="'+(H-10)+'" text-anchor="middle" fill="currentColor" fill-opacity=".7" font-size="11" font-family="Barlow,sans-serif">'+fmtDate(d).slice(0,5)+'</text>'; });
+    var legend='';
+    ranked.forEach(function(p,i){
+      var c=palette[i%palette.length];
+      var pts=p.historico.filter(function(h){return h[key]!==null;});
+      var d=pts.map(function(h,j){return (j?'L':'M')+x(h.data).toFixed(1)+' '+y(h[key]).toFixed(1);}).join(' ');
+      var last=pts[pts.length-1];
+      out+='<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+      out+='<circle cx="'+x(last.data).toFixed(1)+'" cy="'+y(last[key]).toFixed(1)+'" r="4" fill="'+c+'"/>';
+      legend+='<span><i style="background:'+c+'"></i>'+esc(p.apelido||p.nome)+'</span>';
+    });
+    svg.innerHTML=out; $('legend').innerHTML=legend;
+    $('chartNote').textContent='Rating de '+mode+' em cada sincronização, de '+fmtDate(xs[0])+' a '+fmtDate(xs[xs.length-1])+'.';
+  }
+
+  function setStatus(msg, err){ var st=$('status'); st.textContent=msg||''; st.className='status'+(err?' err':''); }
+  function useDemo(){ data=demoData(); isDemo=true; render(); }
+
+  function showFallback(msg){ $('setup').hidden=false; $('setupMsg').textContent=msg; $('retry').hidden=false; }
+
+  function load(){
+    $('setup').hidden=true;
+    fetch(API_URL+'?v='+Date.now(), {credentials:'omit'})
+      .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(j){ if(!j||!Array.isArray(j.jogadores)||!j.jogadores.length) throw new Error('sem dados'); data=j; isDemo=false; render(); })
+      .catch(function(){ showFallback('Não consegui buscar os ratings atualizados agora. Mostrando a última foto salva. Tente de novo em alguns minutos.'); });
+  }
+
+  document.querySelectorAll('.tabs button').forEach(function(b){ b.addEventListener('click',function(){ mode=b.dataset.mode; document.querySelectorAll('.tabs button').forEach(function(x){x.setAttribute('aria-selected',x===b?'true':'false');}); if(data) render(); }); });
+  $('retry').addEventListener('click', load);
+
+  useDemo();
+  load();
+})();
+</script>
+
+</body>
+</html>
